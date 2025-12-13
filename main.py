@@ -2,9 +2,9 @@ import requests
 
 BASE_URL = "http://127.0.0.1:8000"
 
-ORDER_SERVICE_BASE_URL = f"{BASE_URL}/order"
-PRODUCT_SERVICE_BASE_URL = f"{BASE_URL}/product"
-USER_SERVICE_BASE_URL = f"{BASE_URL}/user"
+ORDER_SERVICE_BASE_URL = f"{BASE_URL}/orders"
+PRODUCT_SERVICE_BASE_URL = f"{BASE_URL}/products"
+USER_SERVICE_BASE_URL = f"{BASE_URL}/users"
 
 
 class Console:
@@ -23,7 +23,7 @@ class Console:
     def get_user():
         return requests.get(f"{USER_SERVICE_BASE_URL}/")
 
-    # =============== OpenAPI Contract =========
+    # =============== OpenAPI Contract ==============
     @staticmethod
     def get_openapi_contract():
         return requests.get(f"{BASE_URL}/openapi.json").json()
