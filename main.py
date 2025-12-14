@@ -2,14 +2,14 @@ import requests
 import json
 
 # Налаштування URL-адрес для всіх сервісів
-# (Зараз ми припускаємо, що вони на різних портах, як це зазвичай буває)
 PRODUCT_SERVICE_URL = "http://127.0.0.1:8001"
 ORDER_SERVICE_URL = "http://127.0.0.1:8002"
-USER_SERVICE_URL = "http://127.0.0.1:8000"
+USER_SERVICE_URL = "http://127.0.0.1:8003"
+
+current_user = None
 
 
 class ServicesClient:
-
 
     # =======================================================
     #                   PRODUCT SERVICE
@@ -25,7 +25,9 @@ class ServicesClient:
     @staticmethod
     def get_user_products(owner_id):
         try:
-            response = requests.get(f"{PRODUCT_SERVICE_URL}/products", params={"ownerId": owner_id})
+            response = requests.get(
+                f"{PRODUCT_SERVICE_URL}/products", params={"ownerId": owner_id}
+            )
             return response.json()
         except Exception as e:
             return f"Помилка: {e}"
@@ -42,29 +44,20 @@ class ServicesClient:
 
     @staticmethod
     def create_product():
+        if not current_user:
+            return "Потрібна авторизація"
+
         print("\n--- Створення нового товару ---")
         try:
-            # Збираємо дані відповідно до вашої моделі ProductBase
-            owner_id = int(input("ID власника (ownerId): "))
-            title = input("Назва товару (title): ")
-            description = input("Опис (description): ")
-            price = float(input("Ціна (price): "))
-            category = input("Категорія (category): ")
-            quantity = int(input("Кількість (quantity): "))
-
-            # Поля за замовчуванням (або можна теж запитати)
-            status = "active"
-            image_url = "http://example.com/default.jpg"
-
             new_data = {
-                "ownerId": owner_id,
-                "title": title,
-                "description": description,
-                "price": price,
-                "category": category,
-                "status": status,
-                "quantity": quantity,
-                "imageUrl": image_url
+                "ownerId": current_user["id"],
+                "title": input("Назва: "),
+                "description": input("Опис: "),
+                "price": float(input("Ціна: ")),
+                "category": input("Категорія: "),
+                "status": "active",
+                "quantity": int(input("Кількість: ")),
+                "imageUrl": "http://example.com/default.jpg",
             }
 
             response = requests.post(f"{PRODUCT_SERVICE_URL}/products", json=new_data)
@@ -76,30 +69,78 @@ class ServicesClient:
 
     @staticmethod
     def delete_product(product_id):
+        product = ServicesClient.get_product_by_id(product_id)
+
+        if not isinstance(product, dict):
+            return "Товар не знайдено"
+
+        if product["ownerId"] != current_user["id"]:
+            return "Ви не можете видаляти чужий товар"
+
+        return requests.delete(f"{PRODUCT_SERVICE_URL}/products/{product_id}").json()
+
+    # =======================================================
+    #                   ORDER SERVICE
+    # =======================================================
+
+    @staticmethod
+    def get_user_orders(user_id):
         try:
-            response = requests.delete(f"{PRODUCT_SERVICE_URL}/products/{product_id}")
-            return response.json()
+            return requests.get(f"{ORDER_SERVICE_URL}/orders/users/{user_id}").json()
+        except Exception as e:
+            return f"Помилка: {e}"
+
+    @staticmethod
+    def find_order_by_id(order_id):
+        try:
+            return requests.get(f"{ORDER_SERVICE_URL}/orders/{order_id}").json()
+        except Exception as e:
+            return f"Помилка: {e}"
+
+    @staticmethod
+    def create_order_console():
+        print("Введіть ID товару для замовлення:")
+        pid = input().strip()
+        if not pid.isdigit():
+            print("ID товару має бути числом")
+            return
+
+        product_id = int(pid)
+        order_payload = {"buyerId": current_user["id"], "productId": product_id}
+
+        try:
+            response = requests.post(f"{ORDER_SERVICE_URL}/orders", json=order_payload)
+            if response.status_code == 200:
+                print("Замовлення створено:", response.json())
+            else:
+                print(f"Помилка {response.status_code}: {response.text}")
+        except Exception as e:
+            print("Помилка запиту:", e)
+
+    @staticmethod
+    def update_order_status(order_id, status):
+        order = ServicesClient.find_order_by_id(order_id)
+        if not order or order.get("buyerId") != current_user["id"]:
+            return "Ви не можете змінювати чужі замовлення!"
+        try:
+            return requests.put(
+                f"{ORDER_SERVICE_URL}/orders/{order_id}/{status}"
+            ).json()
+        except Exception as e:
+            return f"Помилка: {e}"
+
+    @staticmethod
+    def cancel_order(order_id):
+        order = ServicesClient.find_order_by_id(order_id)
+        if not order or order.get("buyerId") != current_user["id"]:
+            return "Ви не можете відміняти чужі замовлення!"
+        try:
+            return requests.delete(f"{ORDER_SERVICE_URL}/orders/{order_id}").json()
         except Exception as e:
             return f"Помилка: {e}"
 
     # =======================================================
-    #                   ORDER SERVICE
-    # (Методи є, але в меню ми їх поки не додаємо)
-    # =======================================================
-    @staticmethod
-    def get_all_orders():
-        # Заготовка на майбутнє
-        return requests.get(f"{ORDER_SERVICE_URL}/orders").json()
-
-    @staticmethod
-    def create_order(user_id, product_ids):
-        # Заготовка
-        data = {"user_id": user_id, "products": product_ids}
-        return requests.post(f"{ORDER_SERVICE_URL}/orders", json=data).json()
-
-    # =======================================================
     #                   USER SERVICE
-    # (Додаємо консольні дії за аналогією з product)
     # =======================================================
     @staticmethod
     def get_user_by_id(user_id):
@@ -134,6 +175,7 @@ class ServicesClient:
     @staticmethod
     def update_user(user_id, updates):
         try:
+            user_id = current_user["id"]
             response = requests.put(f"{USER_SERVICE_URL}/user/{user_id}", json=updates)
             if response.status_code == 200:
                 return response.json()
@@ -151,37 +193,113 @@ class ServicesClient:
         except Exception as e:
             return f"Помилка: {e}"
 
+    @staticmethod
+    def update_current_user(updates):
+        return ServicesClient.update_user(current_user["id"], updates)
 
-# --- КОНСОЛЬНЕ МЕНЮ (Product та User Service) ---
+    @staticmethod
+    def delete_current_user():
+        return ServicesClient.delete_user(current_user["id"])
 
-def run_console_menu():
+    # =======================================================
+    #                   AUTH (CLIENT SIDE)
+    # =======================================================
+
+    @staticmethod
+    def login(username: str, password: str):
+        global current_user
+
+        users = ServicesClient.list_users()
+        if not isinstance(users, list):
+            return "Помилка отримання користувачів"
+
+        for u in users:
+            if u["username"] == username and u.get("password") == password:
+                current_user = u
+                return f"Ви увійшли як {u['username']}"
+
+        return "Невірний логін або пароль"
+
+    @staticmethod
+    def logout():
+        global current_user
+        current_user = None
+        return "Ви вийшли з акаунту"
+
+    @staticmethod
+    def whoami():
+        if current_user:
+            return current_user
+        return "Користувач не авторизований"
+
+
+# --- КОНСОЛЬНІ МЕНЮ ---
+current_user = None
+
+
+def auth_menu():
+    global current_user
+    while not current_user:
+        print("\n=== АВТОРИЗАЦІЯ / РЕЄСТРАЦІЯ ===")
+        print("1. Реєстрація")
+        print("2. Вхід (login)")
+        print("0. Вихід")
+        choice = input("Ваш вибір: ")
+
+        if choice == "1":
+            username = input("Username: ")
+            email = input("Email: ")
+            full_name = input("Full name: ")
+            password = input("Password: ")
+
+            user = {
+                "username": username,
+                "email": email,
+                "fullName": full_name,
+                "password": password,
+            }
+            print(ServicesClient.create_user(user))
+
+        elif choice == "2":
+            username = input("Username: ")
+            password = input("Password: ")
+            print(ServicesClient.login(username, password))
+
+        elif choice == "0":
+            print("Вихід.")
+            exit()
+
+        else:
+            print("Невідома команда.")
+
+
+def app_menu():
     while True:
-        print("\n================ МЕНЮ (PRODUCT SERVICE) ================")
+        print("\n=== ГОЛОВНЕ МЕНЮ ===")
+        print("=== PRODUCT SERVICE ===")
         print("1. Показати всі товари")
-        print("2. Знайти товари користувача (за ownerId)")
+        print("2. Показати мої товари")
         print("3. Знайти товар за ID")
         print("4. Створити товар")
-        print("5. Видалити товар")
-        print("--- USER SERVICE ---")
-        print("6. Показати всіх користувачів")
-        print("7. Знайти користувача за ID")
-        print("8. Створити користувача")
-        print("9. Оновити користувача")
-        print("10. Видалити користувача")
+        print("5. Видалити свій товар")
+        print("=== ORDER SERVICE ===")
+        print("6. Показати мої замовлення")
+        print("7. Створити замовлення")
+        print("8. Знайти замовлення за ID")
+        print("9. Оновити статус замовлення")
+        print("10. Відмінити замовлення")
+        print("=== USER SERVICE ===")
+        print("11. Показати мої дані")
+        print("12. Оновити мої дані")
+        print("13. Вихід (logout)")
         print("0. Вихід")
-        print("========================================================")
-
         choice = input("Ваш вибір: ")
 
         if choice == "1":
             print(ServicesClient.get_all_products())
 
         elif choice == "2":
-            uid = input("Введіть ownerId: ")
-            if uid.isdigit():
-                print(ServicesClient.get_user_products(int(uid)))
-            else:
-                print("ID має бути числом.")
+            print(ServicesClient.get_user_products(current_user["id"]))
 
         elif choice == "3":
             pid = input("Введіть ID товару: ")
@@ -191,54 +309,62 @@ def run_console_menu():
                 print("ID має бути числом.")
 
         elif choice == "4":
-            result = ServicesClient.create_product()
-            print("Результат:", result)
+            ServicesClient.create_product()
 
         elif choice == "5":
-            pid = input("Введіть ID товару для видалення: ")
+            pid = input("ID вашого товару для видалення: ")
             if pid.isdigit():
                 print(ServicesClient.delete_product(int(pid)))
             else:
                 print("ID має бути числом.")
 
         elif choice == "6":
-            print(ServicesClient.list_users())
+            print(ServicesClient.get_user_orders(current_user["id"]))
 
         elif choice == "7":
-            uid = input("Введіть ID користувача: ")
-            if uid.isdigit():
-                print(ServicesClient.get_user_by_id(int(uid)))
+            ServicesClient.create_order_console()
+
+        elif choice == "8":
+            oid = input("ID замовлення: ")
+            if oid.isdigit():
+                order = ServicesClient.find_order_by_id(int(oid))
+                if order.get("buyerId") != current_user["id"]:
+                    print("Це не ваше замовлення!")
+                else:
+                    print(order)
             else:
                 print("ID має бути числом.")
 
-        elif choice == "8":
-            username = input("Логін (username): ")
-            email = input("Email: ")
-            full_name = input("Повне ім'я (fullName): ")
-            password = input("Пароль: ")
-            
-            if not password:
-                print("Помилка: пароль є обов'язковим!")
-                continue
-            
-            new_user = {
-                "username": username,
-                "email": email,
-                "fullName": full_name,
-                "password": password
-            }
-            print(ServicesClient.create_user(new_user))
-
         elif choice == "9":
-            uid = input("ID користувача для оновлення: ")
-            if not uid.isdigit():
+            oid = input("ID замовлення: ")
+            status = input("Новий статус: ")
+            if oid.isdigit():
+                order = ServicesClient.find_order_by_id(int(oid))
+                if order.get("buyerId") != current_user["id"]:
+                    print("Ви не можете змінювати чужі замовлення!")
+                else:
+                    print(ServicesClient.update_order_status(int(oid), status))
+            else:
                 print("ID має бути числом.")
-                continue
 
-            username = input("Новий username (якщо без змін - залишити порожнім): ")
-            email = input("Новий email (якщо без змін - залишити порожнім): ")
-            full_name = input("Нове fullName (якщо без змін - залишити порожнім): ")
+        elif choice == "10":
+            oid = input("ID замовлення для відміни: ")
+            if oid.isdigit():
+                order = ServicesClient.find_order_by_id(int(oid))
+                if order.get("buyerId") != current_user["id"]:
+                    print("Ви не можете відміняти чужі замовлення!")
+                else:
+                    print(ServicesClient.cancel_order(int(oid)))
+            else:
+                print("ID має бути числом.")
 
+        elif choice == "11":
+            print(current_user)
+
+        elif choice == "12":
+            username = input("Новий username (залиште порожнім щоб не змінювати): ")
+            email = input("Новий email (залиште порожнім щоб не змінювати): ")
+            full_name = input("Новий fullName (залиште порожнім щоб не змінювати): ")
             updates = {}
             if username:
                 updates["username"] = username
@@ -246,19 +372,14 @@ def run_console_menu():
                 updates["email"] = email
             if full_name:
                 updates["fullName"] = full_name
-
-            if not updates:
-                print("Немає даних для оновлення.")
-                continue
-
-            print(ServicesClient.update_user(int(uid), updates))
-
-        elif choice == "10":
-            uid = input("ID користувача для видалення: ")
-            if uid.isdigit():
-                print(ServicesClient.delete_user(int(uid)))
+            if updates:
+                print(ServicesClient.update_user(current_user["id"], updates))
             else:
-                print("ID має бути числом.")
+                print("Немає змін.")
+
+        elif choice == "13":
+            print(ServicesClient.logout())
+            auth_menu()
 
         elif choice == "0":
             print("Вихід.")
@@ -266,6 +387,12 @@ def run_console_menu():
 
         else:
             print("Невідома команда.")
+
+
+def run_console_menu():
+    while True:
+        auth_menu()
+        app_menu()
 
 
 if __name__ == "__main__":
