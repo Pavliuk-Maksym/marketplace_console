@@ -215,15 +215,18 @@ def run_console_menu():
             username = input("Логін (username): ")
             email = input("Email: ")
             full_name = input("Повне ім'я (fullName): ")
-            # Пароль може бути опційним для нашої простої служби
-            password = input("Пароль (опційно, можна пропустити): ")
+            password = input("Пароль: ")
+            
+            if not password:
+                print("Помилка: пароль є обов'язковим!")
+                continue
+            
             new_user = {
                 "username": username,
                 "email": email,
-                "fullName": full_name
+                "fullName": full_name,
+                "password": password
             }
-            if password:
-                new_user["password"] = password
             print(ServicesClient.create_user(new_user))
 
         elif choice == "9":
