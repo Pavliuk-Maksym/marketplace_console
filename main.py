@@ -1,5 +1,4 @@
 import requests
-import json
 
 # Налаштування URL-адрес для всіх сервісів
 PRODUCT_SERVICE_URL = "http://127.0.0.1:8001"
@@ -232,6 +231,14 @@ class ServicesClient:
             return current_user
         return "Користувач не авторизований"
 
+    @staticmethod
+    def get_openapi_contract():
+        return (
+            requests.get(f"{PRODUCT_SERVICE_URL}/openapi.json").json(),
+            requests.get(f"{ORDER_SERVICE_URL}/openapi.json").json(),
+            requests.get(f"{USER_SERVICE_URL}/openapi.json").json(),
+        )
+
 
 # --- КОНСОЛЬНІ МЕНЮ ---
 current_user = None
@@ -243,6 +250,7 @@ def auth_menu():
         print("\n=== АВТОРИЗАЦІЯ / РЕЄСТРАЦІЯ ===")
         print("1. Реєстрація")
         print("2. Вхід (login)")
+        print("3. Отримати OpenAPI Контракт")
         print("0. Вихід")
         choice = input("Ваш вибір: ")
 
@@ -265,6 +273,23 @@ def auth_menu():
             password = input("Password: ")
             print(ServicesClient.login(username, password))
 
+        elif choice == "3":
+            product_contract, order_contract, user_contract = (
+                ServicesClient.get_openapi_contract()
+            )
+            print(
+                "=============================== PRODUCT CONTRACT ==============================="
+            )
+            print(product_contract)
+            print(
+                "=============================== ORDER CONTRACT ================================="
+            )
+            print(order_contract)
+            print(
+                "=============================== USER CONTRACT =================================="
+            )
+            print(user_contract)
+
         elif choice == "0":
             print("Вихід.")
             exit()
@@ -282,13 +307,13 @@ def app_menu():
         print("3. Знайти товар за ID")
         print("4. Створити товар")
         print("5. Видалити свій товар")
-        print("=== ORDER SERVICE ===")
+        print("\n=== ORDER SERVICE ===")
         print("6. Показати мої замовлення")
         print("7. Створити замовлення")
         print("8. Знайти замовлення за ID")
         print("9. Оновити статус замовлення")
         print("10. Відмінити замовлення")
-        print("=== USER SERVICE ===")
+        print("\n=== USER SERVICE ===")
         print("11. Показати мої дані")
         print("12. Оновити мої дані")
         print("13. Вихід (logout)")
