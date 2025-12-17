@@ -1,22 +1,22 @@
 import requests
 
-# Налаштування URL-адрес для всіх сервісів
+
 PRODUCT_SERVICE_URL = "http://127.0.0.1:8001"
 ORDER_SERVICE_URL = "http://127.0.0.1:8002"
 USER_SERVICE_URL = "http://127.0.0.1:8003"
+DISCOVERY_SERVICE_URL = "http://127.0.0.1:8000"
+
+GATEWAY_URL = "http://127.0.0.1:8080"
 
 current_user = None
 
 
 class ServicesClient:
 
-    # =======================================================
-    #                   PRODUCT SERVICE
-    # =======================================================
     @staticmethod
     def get_all_products():
         try:
-            response = requests.get(f"{PRODUCT_SERVICE_URL}/products")
+            response = requests.get(f"{GATEWAY_URL}/products")
             return response.json()
         except Exception as e:
             return f"Помилка з'єднання з Product Service: {e}"
@@ -25,7 +25,7 @@ class ServicesClient:
     def get_user_products(owner_id):
         try:
             response = requests.get(
-                f"{PRODUCT_SERVICE_URL}/products", params={"ownerId": owner_id}
+                f"{GATEWAY_URL}/products", params={"ownerId": owner_id}
             )
             return response.json()
         except Exception as e:
@@ -34,7 +34,7 @@ class ServicesClient:
     @staticmethod
     def get_product_by_id(product_id):
         try:
-            response = requests.get(f"{PRODUCT_SERVICE_URL}/products/{product_id}")
+            response = requests.get(f"{GATEWAY_URL}/products/{product_id}")
             if response.status_code == 200:
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -59,7 +59,7 @@ class ServicesClient:
                 "imageUrl": "http://example.com/default.jpg",
             }
 
-            response = requests.post(f"{PRODUCT_SERVICE_URL}/products", json=new_data)
+            response = requests.post(f"{GATEWAY_URL}/products", json=new_data)
             return response.json()
         except ValueError:
             return "Помилка вводу: перевірте, чи ви ввели числа там, де потрібно."
@@ -76,23 +76,19 @@ class ServicesClient:
         if product["ownerId"] != current_user["id"]:
             return "Ви не можете видаляти чужий товар"
 
-        return requests.delete(f"{PRODUCT_SERVICE_URL}/products/{product_id}").json()
-
-    # =======================================================
-    #                   ORDER SERVICE
-    # =======================================================
+        return requests.delete(f"{GATEWAY_URL}/products/{product_id}").json()
 
     @staticmethod
     def get_user_orders(user_id):
         try:
-            return requests.get(f"{ORDER_SERVICE_URL}/orders/users/{user_id}").json()
+            return requests.get(f"{GATEWAY_URL}/orders/users/{user_id}").json()
         except Exception as e:
             return f"Помилка: {e}"
 
     @staticmethod
     def find_order_by_id(order_id):
         try:
-            return requests.get(f"{ORDER_SERVICE_URL}/orders/{order_id}").json()
+            return requests.get(f"{GATEWAY_URL}/orders/{order_id}").json()
         except Exception as e:
             return f"Помилка: {e}"
 
@@ -108,7 +104,7 @@ class ServicesClient:
         order_payload = {"buyerId": current_user["id"], "productId": product_id}
 
         try:
-            response = requests.post(f"{ORDER_SERVICE_URL}/orders", json=order_payload)
+            response = requests.post(f"{GATEWAY_URL}/orders", json=order_payload)
             if response.status_code == 200:
                 print("Замовлення створено:", response.json())
             else:
@@ -122,9 +118,7 @@ class ServicesClient:
         if not order or order.get("buyerId") != current_user["id"]:
             return "Ви не можете змінювати чужі замовлення!"
         try:
-            return requests.put(
-                f"{ORDER_SERVICE_URL}/orders/{order_id}/{status}"
-            ).json()
+            return requests.put(f"{GATEWAY_URL}/orders/{order_id}/{status}").json()
         except Exception as e:
             return f"Помилка: {e}"
 
@@ -134,17 +128,14 @@ class ServicesClient:
         if not order or order.get("buyerId") != current_user["id"]:
             return "Ви не можете відміняти чужі замовлення!"
         try:
-            return requests.delete(f"{ORDER_SERVICE_URL}/orders/{order_id}").json()
+            return requests.delete(f"{GATEWAY_URL}/orders/{order_id}").json()
         except Exception as e:
             return f"Помилка: {e}"
 
-    # =======================================================
-    #                   USER SERVICE
-    # =======================================================
     @staticmethod
     def get_user_by_id(user_id):
         try:
-            response = requests.get(f"{USER_SERVICE_URL}/user/{user_id}")
+            response = requests.get(f"{GATEWAY_URL}/users/{user_id}")
             if response.status_code == 200:
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -154,7 +145,7 @@ class ServicesClient:
     @staticmethod
     def create_user(user_data):
         try:
-            response = requests.post(f"{USER_SERVICE_URL}/user", json=user_data)
+            response = requests.post(f"{GATEWAY_URL}/users", json=user_data)
             if response.status_code in (200, 201):
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -164,7 +155,7 @@ class ServicesClient:
     @staticmethod
     def list_users():
         try:
-            response = requests.get(f"{USER_SERVICE_URL}/user")
+            response = requests.get(f"{GATEWAY_URL}/users")
             if response.status_code == 200:
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -175,7 +166,7 @@ class ServicesClient:
     def update_user(user_id, updates):
         try:
             user_id = current_user["id"]
-            response = requests.put(f"{USER_SERVICE_URL}/user/{user_id}", json=updates)
+            response = requests.put(f"{GATEWAY_URL}/users/{user_id}", json=updates)
             if response.status_code == 200:
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -185,7 +176,7 @@ class ServicesClient:
     @staticmethod
     def delete_user(user_id):
         try:
-            response = requests.delete(f"{USER_SERVICE_URL}/user/{user_id}")
+            response = requests.delete(f"{GATEWAY_URL}/users/{user_id}")
             if response.status_code == 200:
                 return response.json()
             return f"Помилка {response.status_code}: {response.text}"
@@ -199,10 +190,6 @@ class ServicesClient:
     @staticmethod
     def delete_current_user():
         return ServicesClient.delete_user(current_user["id"])
-
-    # =======================================================
-    #                   AUTH (CLIENT SIDE)
-    # =======================================================
 
     @staticmethod
     def login(username: str, password: str):
@@ -237,10 +224,11 @@ class ServicesClient:
             requests.get(f"{PRODUCT_SERVICE_URL}/openapi.json").json(),
             requests.get(f"{ORDER_SERVICE_URL}/openapi.json").json(),
             requests.get(f"{USER_SERVICE_URL}/openapi.json").json(),
+            requests.get(f"{DISCOVERY_SERVICE_URL}/openapi.json").json(),
+            requests.get(f"{GATEWAY_URL}/openapi.json").json(),
         )
 
 
-# --- КОНСОЛЬНІ МЕНЮ ---
 current_user = None
 
 
@@ -272,11 +260,14 @@ def auth_menu():
             username = input("Username: ")
             password = input("Password: ")
             print(ServicesClient.login(username, password))
-
         elif choice == "3":
-            product_contract, order_contract, user_contract = (
-                ServicesClient.get_openapi_contract()
-            )
+            (
+                product_contract,
+                order_contract,
+                user_contract,
+                discovery_contract,
+                gateway_contract,
+            ) = ServicesClient.get_openapi_contract()
             print(
                 "=============================== PRODUCT CONTRACT ==============================="
             )
@@ -289,6 +280,14 @@ def auth_menu():
                 "=============================== USER CONTRACT =================================="
             )
             print(user_contract)
+            print(
+                "=============================== DISCOVERY CONTRACT ============================="
+            )
+            print(discovery_contract)
+            print(
+                "=============================== GATEWAY CONTRACT ==============================="
+            )
+            print(gateway_contract)
 
         elif choice == "0":
             print("Вихід.")
