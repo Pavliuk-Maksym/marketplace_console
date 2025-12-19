@@ -94,21 +94,36 @@ class ServicesClient:
 
     @staticmethod
     def create_order_console():
-        print("Введіть ID товару для замовлення:")
-        pid = input().strip()
-        if not pid.isdigit():
-            print("ID товару має бути числом")
-            return
-
-        product_id = int(pid)
-        order_payload = {"buyerId": current_user["id"], "productId": product_id}
-
         try:
+            user_resp = requests.get(f"{GATEWAY_URL}/users/{current_user["id"]}")
+            if user_resp.status_code != 200:
+                print("Не вдалося отримати дані користувача:", user_resp.text)
+                return
+            user_data = user_resp.json()
+
+            pid = input("Введіть ID товару для замовлення: ").strip()
+            if not pid.isdigit():
+                print("ID товару має бути числом")
+                return
+            product_id = int(pid)
+
+            product_resp = requests.get(f"{GATEWAY_URL}/products/{product_id}")
+            if product_resp.status_code != 200:
+                print("Товар не знайдено:", product_resp.text)
+                return
+            product_data = product_resp.json()
+
+            order_payload = {
+                "buyerId": user_data["id"],
+                "productId": product_data["id"],
+            }
+
             response = requests.post(f"{GATEWAY_URL}/orders", json=order_payload)
-            if response.status_code == 200:
+            if response.status_code == 200 or response.status_code == 201:
                 print("Замовлення створено:", response.json())
             else:
                 print(f"Помилка {response.status_code}: {response.text}")
+
         except Exception as e:
             print("Помилка запиту:", e)
 
