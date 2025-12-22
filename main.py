@@ -92,40 +92,27 @@ class ServicesClient:
         except Exception as e:
             return f"Помилка: {e}"
 
-    @staticmethod
     def create_order_console():
         try:
-            user_resp = requests.get(f"{GATEWAY_URL}/users/{current_user["id"]}")
-            if user_resp.status_code != 200:
-                print("Не вдалося отримати дані користувача:", user_resp.text)
-                return
-            user_data = user_resp.json()
-
-            pid = input("Введіть ID товару для замовлення: ").strip()
+            pid = input("Введіть ID товару: ").strip()
             if not pid.isdigit():
-                print("ID товару має бути числом")
+                print("ID має бути числом")
                 return
-            product_id = int(pid)
-
-            product_resp = requests.get(f"{GATEWAY_URL}/products/{product_id}")
-            if product_resp.status_code != 200:
-                print("Товар не знайдено:", product_resp.text)
-                return
-            product_data = product_resp.json()
 
             order_payload = {
-                "buyerId": user_data["id"],
-                "productId": product_data["id"],
+                "buyerId": current_user["id"],
+                "productId": int(pid),
             }
 
-            response = requests.post(f"{GATEWAY_URL}/orders", json=order_payload)
-            if response.status_code == 200 or response.status_code == 201:
-                print("Замовлення створено:", response.json())
+            resp = requests.post(f"{GATEWAY_URL}/orders", json=order_payload)
+
+            if resp.status_code in (200, 201):
+                print("Замовлення створено:", resp.json())
             else:
-                print(f"Помилка {response.status_code}: {response.text}")
+                print(f"Помилка {resp.status_code}: {resp.text}")
 
         except Exception as e:
-            print("Помилка запиту:", e)
+            print("Помилка:", e)
 
     @staticmethod
     def update_order_status(order_id, status):
