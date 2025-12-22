@@ -92,6 +92,7 @@ class ServicesClient:
         except Exception as e:
             return f"Помилка: {e}"
 
+    @staticmethod
     def create_order_console():
         try:
             pid = input("Введіть ID товару: ").strip()
